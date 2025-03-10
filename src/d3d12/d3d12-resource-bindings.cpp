@@ -289,6 +289,10 @@ namespace nvrhi::d3d12
                         {
                             SamplerFeedbackTexture* texture = checked_cast<SamplerFeedbackTexture*>(binding.resourceHandle);
 
+                            // No texture - fallback to a NULL descriptor created below when 'found == false'
+                            if (!texture)
+                                break;
+
                             texture->createUAV(descriptorHandle.ptr);
                             pResource = texture;
 
