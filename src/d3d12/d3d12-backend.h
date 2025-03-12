@@ -1205,6 +1205,9 @@ namespace nvrhi::d3d12
         bool GetAccelStructPreBuildInfo(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO& outPreBuildInfo, const rt::AccelStructDesc& desc) const;
 
         bool GetNvapiIsInitialized() const { return m_NvapiIsInitialized; }
+        bool GetOpacityMicromapSupported() const { return m_OpacityMicromapSupported; }
+        bool GetLinearSweptSpheresSupported( ) const { return m_LinearSweptSpheresSupported; }
+
     private:
         Context m_Context;
         DeviceResources m_Resources;
