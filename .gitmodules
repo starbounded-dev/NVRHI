@@ -6,5 +6,4 @@
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
 [submodule "thirdparty/DirectX-Headers"]
 	path = thirdparty/DirectX-Headers
-	url = git@github.com:microsoft/DirectX-Headers.git
-	branch = tags/v1.615.0
+	url = https://github.com/microsoft/DirectX-Headers.git
