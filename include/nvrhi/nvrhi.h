@@ -812,12 +812,6 @@ namespace nvrhi
 
         FastGeometryShaderFlags fastGSFlags = FastGeometryShaderFlags(0);
         uint32_t* pCoordinateSwizzling = nullptr;
-
-        ShaderDesc() = default;
-
-        ShaderDesc(ShaderType type)
-            : shaderType(type)
-        { }
     };
 
     struct ShaderSpecialization

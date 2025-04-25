@@ -221,9 +221,9 @@ namespace nvrhi::d3d12
         RefCountPtr<IShaderLibrary> library;
 
         ShaderLibraryEntry(IShaderLibrary* pLibrary, const char* entryName, ShaderType shaderType)
-            : desc(shaderType)
-            , library(pLibrary)
+            : library(pLibrary)
         {
+            desc.shaderType = shaderType;
             desc.entryName = entryName;
         }
 
