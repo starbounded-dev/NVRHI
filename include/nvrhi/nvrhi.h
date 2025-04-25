@@ -796,6 +796,9 @@ namespace nvrhi
 
         Type type;
         std::string name;
+        
+        constexpr CustomSemantic& setType(Type value) { type = value; return *this; }
+                  CustomSemantic& setName(const std::string& value) { name = value; return *this; }
     };
 
     struct ShaderDesc
@@ -812,6 +815,16 @@ namespace nvrhi
 
         FastGeometryShaderFlags fastGSFlags = FastGeometryShaderFlags(0);
         uint32_t* pCoordinateSwizzling = nullptr;
+
+        constexpr ShaderDesc& setShaderType(ShaderType value) { shaderType = value; return *this; }
+                  ShaderDesc& setDebugName(const std::string& value) { debugName = value; return *this; }
+                  ShaderDesc& setEntryName(const std::string& value) { entryName = value; return *this; }
+        constexpr ShaderDesc& setHlslExtensionsUAV(int value) { hlslExtensionsUAV = value; return *this; }
+        constexpr ShaderDesc& setUseSpecificShaderExt(bool value) { useSpecificShaderExt = value; return *this; }
+        constexpr ShaderDesc& setCustomSemantics(uint32_t count, CustomSemantic* data) { numCustomSemantics = count;
+            pCustomSemantics = data; return *this; }
+        constexpr ShaderDesc& setFastGSFlags(FastGeometryShaderFlags value) { fastGSFlags = value; return *this; }
+        constexpr ShaderDesc& setCoordinateSwizzling(uint32_t* value) { pCoordinateSwizzling = value; return *this; }
     };
 
     struct ShaderSpecialization
