@@ -635,7 +635,7 @@ namespace nvrhi::d3d12
         case Feature::SamplerFeedback:
             return m_SamplerFeedbackSupported;
         case Feature::HlslExtensionUAV:
-            return m_NvapiIsInitialized;
+            return m_HlslExtensionsSupported;
         default:
             return false;
         }
