@@ -1235,8 +1235,6 @@ namespace nvrhi::d3d12
         bool m_SamplerFeedbackSupported = false;
         bool m_AftermathEnabled = false;
         bool m_HeapDirectlyIndexedEnabled = false;
-        uint32_t m_MinWaveLaneCount = 0;
-        uint32_t m_MaxWaveLaneCount = 0;
         AftermathCrashDumpHelper m_AftermathCrashDumpHelper;
 
 

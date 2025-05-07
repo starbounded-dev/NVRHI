@@ -114,12 +114,6 @@ namespace nvrhi::d3d12
         bool hasOptions6 = SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS6, &m_Options6, sizeof(m_Options6)));
         bool hasOptions7 = SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &m_Options7, sizeof(m_Options7)));
 
-        if (hasOptions1)
-        {
-            m_MinWaveLaneCount = m_Options1.WaveLaneCountMin;
-            m_MaxWaveLaneCount = m_Options1.WaveLaneCountMax;
-        }
-
         if (SUCCEEDED(m_Context.device->QueryInterface(&m_Context.device5)) && hasOptions5)
         {
             m_RayTracingSupported = m_Options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_0;
