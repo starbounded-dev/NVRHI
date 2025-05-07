@@ -1239,6 +1239,7 @@ namespace nvrhi::d3d12
 
 
         D3D12_FEATURE_DATA_D3D12_OPTIONS  m_Options = {};
+        D3D12_FEATURE_DATA_D3D12_OPTIONS1 m_Options1 = {};
         D3D12_FEATURE_DATA_D3D12_OPTIONS5 m_Options5 = {};
         D3D12_FEATURE_DATA_D3D12_OPTIONS6 m_Options6 = {};
         D3D12_FEATURE_DATA_D3D12_OPTIONS7 m_Options7 = {};

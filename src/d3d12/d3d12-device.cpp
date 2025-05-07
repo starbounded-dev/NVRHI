@@ -109,6 +109,7 @@ namespace nvrhi::d3d12
         m_Resources.samplerHeap.allocateResources(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, desc.samplerHeapSize, true);
 
         m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &m_Options, sizeof(m_Options));
+        bool hasOptions1 = SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &m_Options1, sizeof(m_Options1)));
         bool hasOptions5 = SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &m_Options5, sizeof(m_Options5)));
         bool hasOptions6 = SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS6, &m_Options6, sizeof(m_Options6)));
         bool hasOptions7 = SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &m_Options7, sizeof(m_Options7)));
@@ -636,6 +637,21 @@ namespace nvrhi::d3d12
             return m_SamplerFeedbackSupported;
         case Feature::HlslExtensionUAV:
             return m_HlslExtensionsSupported;
+        case Feature::WaveLaneCountMinMax:
+            if (m_Options1.WaveLaneCountMin == 0)
+                return false;
+            if (pInfo)
+            {
+                if (infoSize == sizeof(WaveLaneCountMinMaxFeatureInfo))
+                {
+                    auto* pWaveLaneCountMinMaxInfo = reinterpret_cast<WaveLaneCountMinMaxFeatureInfo*>(pInfo);
+                    pWaveLaneCountMinMaxInfo->minWaveLaneCount = m_Options1.WaveLaneCountMin;
+                    pWaveLaneCountMinMaxInfo->maxWaveLaneCount = m_Options1.WaveLaneCountMax;
+                }
+                else
+                    utils::NotSupported();
+            }
+            return true;
         default:
             return false;
         }

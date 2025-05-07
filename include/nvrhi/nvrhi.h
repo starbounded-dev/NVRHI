@@ -2795,7 +2795,8 @@ namespace nvrhi
         ConstantBufferRanges,
         HeapDirectlyIndexed,
         SamplerFeedback,
-        HlslExtensionUAV
+        HlslExtensionUAV,
+        WaveLaneCountMinMax,
     };
 
     enum class MessageSeverity : uint8_t
@@ -2818,6 +2819,12 @@ namespace nvrhi
     struct VariableRateShadingFeatureInfo
     {
         uint32_t shadingRateImageTileSize;
+    };
+
+    struct WaveLaneCountMinMaxFeatureInfo
+    {
+        uint32_t minWaveLaneCount;
+        uint32_t maxWaveLaneCount;
     };
 
     // IMessageCallback should be implemented by the application.
