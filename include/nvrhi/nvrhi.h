@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 14;
+    static constexpr uint32_t c_HeaderVersion = 15;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -2774,28 +2774,28 @@ namespace nvrhi
 
     enum class Feature : uint8_t
     {
-        DeferredCommandLists,
-        SinglePassStereo,
-        RayTracingAccelStruct,
-        RayTracingPipeline,
-        RayTracingOpacityMicromap,
-        RayTracingClusters,
-        RayQuery,
-        ShaderExecutionReordering,
-        Spheres,
-        LinearSweptSpheres,
-        FastGeometryShader,
-        Meshlets,
-        ConservativeRasterization,
-        VariableRateShading,
-        ShaderSpecializations,
-        VirtualResources,
         ComputeQueue,
-        CopyQueue,
+        ConservativeRasterization,
         ConstantBufferRanges,
+        CopyQueue,
+        DeferredCommandLists,
+        FastGeometryShader,
         HeapDirectlyIndexed,
-        SamplerFeedback,
         HlslExtensionUAV,
+        LinearSweptSpheres,
+        Meshlets,
+        RayQuery,
+        RayTracingAccelStruct,
+        RayTracingClusters,
+        RayTracingOpacityMicromap,
+        RayTracingPipeline,
+        SamplerFeedback,
+        ShaderExecutionReordering,
+        ShaderSpecializations,
+        SinglePassStereo,
+        Spheres,
+        VariableRateShading,
+        VirtualResources,
         WaveLaneCountMinMax,
     };
 
