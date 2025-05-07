@@ -181,9 +181,16 @@ namespace nvrhi::d3d12
                 m_SinglePassStereoSupported = true;
             }
 
+            // There is no query for HLSL extension UAV support, so query support for the oldest instruction available.
+            bool supported = false;
+            if (NvAPI_D3D12_IsNvShaderExtnOpCodeSupported(m_Context.device, NV_EXTN_OP_SHFL, &supported) == NVAPI_OK && supported)
+            {
+                m_HlslExtensionsSupported = true;
+            }
+
             // There is no query for FastGS, so query support for FP16 atomics as a proxy.
             // Both features were introduced in the same architecture (Maxwell).
-            bool supported = false;
+            supported = false;
             if (NvAPI_D3D12_IsNvShaderExtnOpCodeSupported(m_Context.device, NV_EXTN_OP_FP16_ATOMIC, &supported) == NVAPI_OK && supported)
             {
                 m_FastGeometryShaderSupported = true;

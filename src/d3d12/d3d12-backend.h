@@ -1221,6 +1221,7 @@ namespace nvrhi::d3d12
         
         bool m_NvapiIsInitialized = false;
         bool m_SinglePassStereoSupported = false;
+        bool m_HlslExtensionsSupported = false;
         bool m_FastGeometryShaderSupported = false;
         bool m_RayTracingSupported = false;
         bool m_TraceRayInlineSupported = false;
