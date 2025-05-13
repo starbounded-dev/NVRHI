@@ -102,7 +102,7 @@ namespace nvrhi::validation
         {
             std::stringstream ss;
             ss << dimensionStr << " " << debugName << ": width(" << d.width << "), height(" << d.height << "), depth(" << d.depth
-                << "), arraySize(" << d.arraySize << ") and mipLevels(" << d.mipLevels << " must not be zero";
+                << "), arraySize(" << d.arraySize << ") and mipLevels(" << d.mipLevels << ") must not be zero";
             error(ss.str());
             return nullptr;
         }
