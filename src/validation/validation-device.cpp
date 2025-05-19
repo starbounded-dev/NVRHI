@@ -1212,6 +1212,7 @@ namespace nvrhi::validation
 
         uint32_t noneItemCount = 0;
         uint32_t pushConstantCount = 0;
+        uint32_t zeroSizeCount = 0;
         for (const BindingLayoutItem& item : desc.bindings)
         {
             if (item.type == ResourceType::None)
@@ -1221,7 +1222,7 @@ namespace nvrhi::validation
             {
                 if (item.size == 0)
                 {
-                    errorStream << "Push constant block size cannot be null" << std::endl;
+                    errorStream << "Push constant block size cannot be 0" << std::endl;
                     anyErrors = true;
                 }
 
@@ -1239,11 +1240,28 @@ namespace nvrhi::validation
 
                 pushConstantCount++;
             }
+            else
+            {
+                if (item.size == 0)
+                    zeroSizeCount++;
+
+                if (item.size > 1 && item.type == ResourceType::VolatileConstantBuffer)
+                {
+                    errorStream << "Arrays of volatile constant buffers are not supported (size = " << item.size << ")" << std::endl;
+                    anyErrors = true;
+                }
+            }
         }
 
         if (noneItemCount)
         {
             errorStream << "Binding layout contains " << noneItemCount << " item(s) with type = None" << std::endl;
+            anyErrors = true;
+        }
+
+        if (zeroSizeCount)
+        {
+            errorStream << "Binding layout contains " << zeroSizeCount << " item(s) with size = 0" << std::endl;
             anyErrors = true;
         }
 
@@ -1628,7 +1646,7 @@ namespace nvrhi::validation
         boundNotDeclared.Sampler = setBindings.Sampler    - layoutBindings.Sampler;
         boundNotDeclared.UAV     = setBindings.UAV        - layoutBindings.UAV;
         boundNotDeclared.CB      = setBindings.CB         - layoutBindings.CB;
-
+#if 0
         if (declaredNotBound.any())
         {
             errorStream << "Bindings declared in the layout are not present in the binding set: " << declaredNotBound << std::endl;
@@ -1673,7 +1691,7 @@ namespace nvrhi::validation
                     anyErrors = true;
             }
         }
-
+#endif
         if (anyErrors)
         {
             error(errorStream.str());

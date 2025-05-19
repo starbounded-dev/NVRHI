@@ -111,7 +111,7 @@ namespace nvrhi::d3d12
 
                     for (const auto& binding : desc.bindings)
                     {
-                        if (binding.type == ResourceType::Sampler && binding.slot == slot)
+                        if (binding.type == ResourceType::Sampler && binding.slot + binding.arrayElement == slot)
                         {
                             Sampler* sampler = checked_cast<Sampler*>(binding.resourceHandle);
                             resources.push_back(sampler);
@@ -156,7 +156,7 @@ namespace nvrhi::d3d12
                     {
                         const BindingSetItem& binding = desc.bindings[bindingIndex];
 
-                        if (binding.slot != slot)
+                        if (binding.slot + binding.arrayElement != slot)
                             continue;
 
                         const auto bindingType = GetNormalizedResourceType(binding.type);
@@ -430,13 +430,13 @@ namespace nvrhi::d3d12
                     D3D12_DESCRIPTOR_RANGE1& range = descriptorRangesSamplers[descriptorRangesSamplers.size() - 1];
 
                     range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-                    range.NumDescriptors = 1;
+                    range.NumDescriptors = binding.size;
                     range.BaseShaderRegister = binding.slot;
                     range.RegisterSpace = desc.registerSpace;
                     range.OffsetInDescriptorsFromTableStart = descriptorTableSizeSamplers;
                     range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
 
-                    descriptorTableSizeSamplers += 1;
+                    descriptorTableSizeSamplers += binding.size;
                 }
                 else
                 {
@@ -474,7 +474,7 @@ namespace nvrhi::d3d12
                         utils::InvalidEnum();
                         continue;
                     }
-                    range.NumDescriptors = 1;
+                    range.NumDescriptors = binding.size;
                     range.BaseShaderRegister = binding.slot;
                     range.RegisterSpace = desc.registerSpace;
                     range.OffsetInDescriptorsFromTableStart = descriptorTableSizeSRVetc;
@@ -483,7 +483,7 @@ namespace nvrhi::d3d12
                     // a buffer to the command list and then copy data into it.
                     range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 
-                    descriptorTableSizeSRVetc += 1;
+                    descriptorTableSizeSRVetc += binding.size;
 
                     bindingLayoutsSRVetc.push_back(binding);
                 }
@@ -500,16 +500,16 @@ namespace nvrhi::d3d12
                     assert(!descriptorRangesSamplers.empty());
                     D3D12_DESCRIPTOR_RANGE1& range = descriptorRangesSamplers[descriptorRangesSamplers.size() - 1];
 
-                    range.NumDescriptors += 1;
-                    descriptorTableSizeSamplers += 1;
+                    range.NumDescriptors += binding.size;
+                    descriptorTableSizeSamplers += binding.size;
                 }
                 else
                 {
                     assert(!descriptorRangesSRVetc.empty());
                     D3D12_DESCRIPTOR_RANGE1& range = descriptorRangesSRVetc[descriptorRangesSRVetc.size() - 1];
 
-                    range.NumDescriptors += 1;
-                    descriptorTableSizeSRVetc += 1;
+                    range.NumDescriptors += binding.size;
+                    descriptorTableSizeSRVetc += binding.size;
 
                     bindingLayoutsSRVetc.push_back(binding);
                 }
