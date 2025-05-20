@@ -89,7 +89,7 @@ namespace nvrhi::validation
 {
     typedef std::unordered_set<BindingLocation> BindingLocationSet;
 
-    struct ShaderBindingSet
+    struct BindingSummary
     {
         BindingLocationSet locations;
         uint32_t numVolatileCBs = 0;
@@ -99,9 +99,10 @@ namespace nvrhi::validation
         Range rangeCB;
 
         [[nodiscard]] bool any() const;
-        [[nodiscard]] bool overlapsWith(const ShaderBindingSet& other) const;
-        friend std::ostream& operator<<(std::ostream& os, const ShaderBindingSet& set);
+        [[nodiscard]] bool overlapsWith(const BindingSummary& other) const;
     };
+    
+    std::ostream& operator<<(std::ostream& os, const BindingLocationSet& set);
 
     enum class CommandListState
     {

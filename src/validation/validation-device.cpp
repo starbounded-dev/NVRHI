@@ -669,8 +669,8 @@ namespace nvrhi::validation
         return m_Device->createFramebuffer(desc);
     }
 
-    static void UpdateShaderBindingSetsWithLocation(IMessageCallback* messageCallback, ResourceType type,
-        BindingLocation location, ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
+    static void UpdateBindingSummaryWithLocation(IMessageCallback* messageCallback, ResourceType type,
+        BindingLocation location, BindingSummary& bindingSet, BindingLocationSet& duplicates)
     {
         switch (type)
         {
@@ -718,7 +718,7 @@ namespace nvrhi::validation
 
         if (bindingSet.locations.find(location) != bindingSet.locations.end())
         {
-            duplicates.locations.insert(location);
+            duplicates.insert(location);
         }
         else
         {
@@ -726,8 +726,8 @@ namespace nvrhi::validation
         }
     }
 
-    static void FillShaderBindingSetFromBindingLayout(IMessageCallback* messageCallback, BindingLayoutDesc const& desc,
-        ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
+    static void FillBindingLayoutSummary(IMessageCallback* messageCallback, BindingLayoutDesc const& desc,
+        BindingSummary& bindingSet, BindingLocationSet& duplicates)
     {
         for (const auto& item : desc.bindings)
         {
@@ -737,13 +737,13 @@ namespace nvrhi::validation
             uint32_t arraySize = item.getArraySize();
             for (location.arrayElement = 0; location.arrayElement < arraySize; ++location.arrayElement)
             {
-                UpdateShaderBindingSetsWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
+                UpdateBindingSummaryWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
             }
         }
     }
     
-    static void FillShaderBindingSetFromBindingSet(IMessageCallback* messageCallback, BindingSetDesc const& desc,
-        uint32_t registerSpace, ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
+    static void FillBindingSetSummary(IMessageCallback* messageCallback, BindingSetDesc const& desc,
+        uint32_t registerSpace, BindingSummary& bindingSet, BindingLocationSet& duplicates)
     {
         for (const auto& item : desc.bindings)
         {
@@ -751,7 +751,7 @@ namespace nvrhi::validation
             location.registerSpace = registerSpace;
             location.slot = item.slot;
             location.arrayElement = item.arrayElement;
-            UpdateShaderBindingSetsWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
+            UpdateBindingSummaryWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
         }
     }
 
@@ -829,7 +829,7 @@ namespace nvrhi::validation
         {
             ShaderType stage = shader->getDesc().shaderType;
 
-            static_vector<ShaderBindingSet, c_MaxBindingLayouts> bindingsPerLayout;
+            static_vector<BindingSummary, c_MaxBindingLayouts> bindingsPerLayout;
             bindingsPerLayout.resize(numBindingLayouts);
 
             // Accumulate binding information about the stage from all layouts
@@ -852,11 +852,11 @@ namespace nvrhi::validation
                         if (!(layoutDesc->visibility & stage))
                                 continue;
 
-                        ShaderBindingSet duplicates;
-                        FillShaderBindingSetFromBindingLayout(m_MessageCallback, *layoutDesc, bindingsPerLayout[layoutIndex], duplicates);
+                        BindingLocationSet duplicates;
+                        FillBindingLayoutSummary(m_MessageCallback, *layoutDesc, bindingsPerLayout[layoutIndex], duplicates);
 
                         // Layouts with duplicates should not have passed validation in createBindingLayout
-                        assert(!duplicates.any());
+                        assert(duplicates.empty());
                     }
                 }
             }
@@ -882,8 +882,8 @@ namespace nvrhi::validation
 
             if (numBindingLayouts > 1)
             {
-                ShaderBindingSet bindings = bindingsPerLayout[0];
-                ShaderBindingSet duplicates;
+                BindingSummary bindings = bindingsPerLayout[0];
+                BindingSummary duplicates;
 
                 for (int layoutIndex = 1; layoutIndex < numBindingLayouts; layoutIndex++)
                 {
@@ -896,7 +896,7 @@ namespace nvrhi::validation
                     if (!anyDuplicateBindings)
                         ssDuplicateBindings << "Same bindings defined by more than one layout in this pipeline:";
 
-                    ssDuplicateBindings << std::endl << utils::ShaderStageToString(stage) << ": " << duplicates;
+                    ssDuplicateBindings << std::endl << utils::ShaderStageToString(stage) << ": " << duplicates.locations;
 
                     anyDuplicateBindings = true;
                 }
@@ -914,11 +914,11 @@ namespace nvrhi::validation
 
                     for (int i = 0; i < numBindingLayouts - 1; i++)
                     {
-                        const ShaderBindingSet& set1 = bindingsPerLayout[i];
+                        const BindingSummary& set1 = bindingsPerLayout[i];
 
                         for (int j = i + 1; j < numBindingLayouts; j++)
                         {
-                            const ShaderBindingSet& set2 = bindingsPerLayout[j];
+                            const BindingSummary& set2 = bindingsPerLayout[j];
 
                             overlapSRV = overlapSRV || set1.rangeSRV.overlapsWith(set2.rangeSRV);
                             overlapSampler = overlapSampler || set1.rangeSampler.overlapsWith(set2.rangeSampler);
@@ -1194,10 +1194,10 @@ namespace nvrhi::validation
         std::stringstream errorStream;
         bool anyErrors = false;
 
-        ShaderBindingSet bindings;
-        ShaderBindingSet duplicates;
+        BindingSummary bindings;
+        BindingLocationSet duplicates;
 
-        FillShaderBindingSetFromBindingLayout(m_MessageCallback, desc, bindings, duplicates);
+        FillBindingLayoutSummary(m_MessageCallback, desc, bindings, duplicates);
 
         if (desc.visibility == ShaderType::None)
         {
@@ -1205,7 +1205,7 @@ namespace nvrhi::validation
             anyErrors = true;
         }
 
-        if (duplicates.any())
+        if (!duplicates.empty())
         {
             errorStream << "Binding layout contains duplicate bindings: " << duplicates << std::endl;
             anyErrors = true;
@@ -1631,35 +1631,35 @@ namespace nvrhi::validation
         std::stringstream errorStream;
         bool anyErrors = false;
 
-        ShaderBindingSet layoutBindings;
-        ShaderBindingSet layoutDuplicates;
+        BindingSummary layoutBindings;
+        BindingLocationSet layoutDuplicates;
 
-        FillShaderBindingSetFromBindingLayout(m_MessageCallback, *layoutDesc, layoutBindings, layoutDuplicates);
+        FillBindingLayoutSummary(m_MessageCallback, *layoutDesc, layoutBindings, layoutDuplicates);
 
-        ShaderBindingSet setBindings;
-        ShaderBindingSet setDuplicates;
+        BindingSummary setBindings;
+        BindingLocationSet setDuplicates;
 
-        FillShaderBindingSetFromBindingSet(m_MessageCallback, desc, layoutDesc->registerSpace, setBindings, setDuplicates);
+        FillBindingSetSummary(m_MessageCallback, desc, layoutDesc->registerSpace, setBindings, setDuplicates);
 
-        ShaderBindingSet declaredNotBound;
-        ShaderBindingSet boundNotDeclared;
+        BindingLocationSet declaredNotBound;
+        BindingLocationSet boundNotDeclared;
 
-        declaredNotBound.locations = SetDifference(layoutBindings.locations, setBindings.locations);
-        boundNotDeclared.locations = SetDifference(setBindings.locations, layoutBindings.locations);
+        declaredNotBound = SetDifference(layoutBindings.locations, setBindings.locations);
+        boundNotDeclared = SetDifference(setBindings.locations, layoutBindings.locations);
 
-        if (declaredNotBound.any())
+        if (!declaredNotBound.empty())
         {
             errorStream << "Bindings declared in the layout are not present in the binding set: " << declaredNotBound << std::endl;
             anyErrors = true;
         }
 
-        if (boundNotDeclared.any())
+        if (!boundNotDeclared.empty())
         {
             errorStream << "Bindings in the binding set are not declared in the layout: " << boundNotDeclared << std::endl;
             anyErrors = true;
         }
 
-        if (setDuplicates.any())
+        if (!setDuplicates.empty())
         {
             errorStream << "Binding set contains duplicate bindings: " << setDuplicates << std::endl;
             anyErrors = true;
@@ -2131,12 +2131,12 @@ namespace nvrhi::validation
         return !empty() && !other.empty() && max >= other.min && min <= other.max;
     }
 
-    bool ShaderBindingSet::any() const
+    bool BindingSummary::any() const
     {
         return !locations.empty();
     }
 
-    bool ShaderBindingSet::overlapsWith(const ShaderBindingSet& other) const
+    bool BindingSummary::overlapsWith(const BindingSummary& other) const
     {
         return rangeSRV.overlapsWith(other.rangeSRV)
             || rangeSampler.overlapsWith(other.rangeSampler)
@@ -2159,10 +2159,10 @@ namespace nvrhi::validation
         return resource;
     }
     
-    std::ostream& operator<<(std::ostream& os, const ShaderBindingSet& set)
+    std::ostream& operator<<(std::ostream& os, const BindingLocationSet& set)
     {
         bool first = true;
-        for (BindingLocation const& item : set.locations)
+        for (BindingLocation const& item : set)
         {
             if (!first)
                 os << ", ";
