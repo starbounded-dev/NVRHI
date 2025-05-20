@@ -670,7 +670,7 @@ namespace nvrhi::validation
     }
 
     static void UpdateBindingSummaryWithLocation(IMessageCallback* messageCallback, ResourceType type,
-        BindingLocation location, BindingSummary& bindingSet, BindingLocationSet& duplicates)
+        BindingLocation location, BindingSummary& bindings, BindingLocationSet& duplicates)
     {
         switch (type)
         {
@@ -680,7 +680,7 @@ namespace nvrhi::validation
         case ResourceType::RawBuffer_SRV:
         case ResourceType::RayTracingAccelStruct:
             location.type = GraphicsResourceType::SRV;
-            bindingSet.rangeSRV.add(location.slot);
+            bindings.rangeSRV.add(location.slot);
             break;
 
         case ResourceType::Texture_UAV:
@@ -689,21 +689,21 @@ namespace nvrhi::validation
         case ResourceType::RawBuffer_UAV:
         case ResourceType::SamplerFeedbackTexture_UAV:
             location.type = GraphicsResourceType::UAV;
-            bindingSet.rangeUAV.add(location.slot);
+            bindings.rangeUAV.add(location.slot);
             break;
 
         case ResourceType::ConstantBuffer:
         case ResourceType::VolatileConstantBuffer:
         case ResourceType::PushConstants:
             location.type = GraphicsResourceType::CB;
-            bindingSet.rangeCB.add(location.slot);
+            bindings.rangeCB.add(location.slot);
             if (type == ResourceType::VolatileConstantBuffer)
-                ++bindingSet.numVolatileCBs;
+                ++bindings.numVolatileCBs;
             break;
 
         case ResourceType::Sampler:
             location.type = GraphicsResourceType::Sampler;
-            bindingSet.rangeSampler.add(location.slot);
+            bindings.rangeSampler.add(location.slot);
             break;
         
         case ResourceType::None:
@@ -716,18 +716,18 @@ namespace nvrhi::validation
         }
         }
 
-        if (bindingSet.locations.find(location) != bindingSet.locations.end())
+        if (bindings.locations.find(location) != bindings.locations.end())
         {
             duplicates.insert(location);
         }
         else
         {
-            bindingSet.locations.insert(location);
+            bindings.locations.insert(location);
         }
     }
 
     static void FillBindingLayoutSummary(IMessageCallback* messageCallback, BindingLayoutDesc const& desc,
-        BindingSummary& bindingSet, BindingLocationSet& duplicates)
+        BindingSummary& bindings, BindingLocationSet& duplicates)
     {
         for (const auto& item : desc.bindings)
         {
@@ -737,13 +737,13 @@ namespace nvrhi::validation
             uint32_t arraySize = item.getArraySize();
             for (location.arrayElement = 0; location.arrayElement < arraySize; ++location.arrayElement)
             {
-                UpdateBindingSummaryWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
+                UpdateBindingSummaryWithLocation(messageCallback, item.type, location, bindings, duplicates);
             }
         }
     }
     
     static void FillBindingSetSummary(IMessageCallback* messageCallback, BindingSetDesc const& desc,
-        uint32_t registerSpace, BindingSummary& bindingSet, BindingLocationSet& duplicates)
+        uint32_t registerSpace, BindingSummary& bindings, BindingLocationSet& duplicates)
     {
         for (const auto& item : desc.bindings)
         {
@@ -751,7 +751,7 @@ namespace nvrhi::validation
             location.registerSpace = registerSpace;
             location.slot = item.slot;
             location.arrayElement = item.arrayElement;
-            UpdateBindingSummaryWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
+            UpdateBindingSummaryWithLocation(messageCallback, item.type, location, bindings, duplicates);
         }
     }
 
