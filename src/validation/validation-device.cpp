@@ -29,6 +29,34 @@
 
 namespace nvrhi::validation
 {
+    template<typename T>
+    static std::unordered_set<T> SetDifference(std::unordered_set<T> const& a, std::unordered_set<T> const& b)
+    {
+        std::unordered_set<T> result = a;
+        for (T const& item : b)
+            result.erase(item);
+        return result;
+    }
+    
+    template<typename T>
+    static std::unordered_set<T> SetIntersection(std::unordered_set<T> const& a, std::unordered_set<T> const& b)
+    {
+        std::unordered_set<T> result;
+        for (T const& item : a)
+        {
+            if (b.find(item) != b.end())
+                result.insert(item);
+        }
+        return result;
+    }
+    
+    template<typename T>
+    static void SetUnionInplace(std::unordered_set<T>& a, std::unordered_set<T> const& b)
+    {
+        for (T const& item : b)
+            a.insert(item);
+    }
+
     DeviceHandle createValidationLayer(IDevice* underlyingDevice)
     {
         DeviceWrapper* wrapper = new DeviceWrapper(underlyingDevice);
@@ -641,95 +669,89 @@ namespace nvrhi::validation
         return m_Device->createFramebuffer(desc);
     }
 
-    template<typename DescType>
-    void FillShaderBindingSetFromDesc(IMessageCallback* messageCallback, const DescType& desc, ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
+    static void UpdateShaderBindingSetsWithLocation(IMessageCallback* messageCallback, ResourceType type,
+        BindingLocation location, ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
     {
-        for (const auto& item : desc)
+        switch (type)
         {
-            switch (item.type)
+        case ResourceType::Texture_SRV:
+        case ResourceType::TypedBuffer_SRV:
+        case ResourceType::StructuredBuffer_SRV:
+        case ResourceType::RawBuffer_SRV:
+        case ResourceType::RayTracingAccelStruct:
+            location.type = GraphicsResourceType::SRV;
+            bindingSet.rangeSRV.add(location.slot);
+            break;
+
+        case ResourceType::Texture_UAV:
+        case ResourceType::TypedBuffer_UAV:
+        case ResourceType::StructuredBuffer_UAV:
+        case ResourceType::RawBuffer_UAV:
+        case ResourceType::SamplerFeedbackTexture_UAV:
+            location.type = GraphicsResourceType::UAV;
+            bindingSet.rangeUAV.add(location.slot);
+            break;
+
+        case ResourceType::ConstantBuffer:
+        case ResourceType::VolatileConstantBuffer:
+        case ResourceType::PushConstants:
+            location.type = GraphicsResourceType::CB;
+            bindingSet.rangeCB.add(location.slot);
+            if (type == ResourceType::VolatileConstantBuffer)
+                ++bindingSet.numVolatileCBs;
+            break;
+
+        case ResourceType::Sampler:
+            location.type = GraphicsResourceType::Sampler;
+            bindingSet.rangeSampler.add(location.slot);
+            break;
+        
+        case ResourceType::None:
+        case ResourceType::Count:
+        default: {
+            std::stringstream ss;
+            ss << "Invalid layout item type " << (int)type;
+            messageCallback->message(MessageSeverity::Error, ss.str().c_str());
+            break;
+        }
+        }
+
+        if (bindingSet.locations.find(location) != bindingSet.locations.end())
+        {
+            duplicates.locations.insert(location);
+        }
+        else
+        {
+            bindingSet.locations.insert(location);
+        }
+    }
+
+    static void FillShaderBindingSetFromBindingLayout(IMessageCallback* messageCallback, BindingLayoutDesc const& desc,
+        ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
+    {
+        for (const auto& item : desc.bindings)
+        {
+            BindingLocation location;
+            location.registerSpace = desc.registerSpace;
+            location.slot = item.slot;
+            uint32_t arraySize = item.getArraySize();
+            for (location.arrayElement = 0; location.arrayElement < arraySize; ++location.arrayElement)
             {
-            case ResourceType::Texture_SRV:
-            case ResourceType::TypedBuffer_SRV:
-            case ResourceType::StructuredBuffer_SRV:
-            case ResourceType::RawBuffer_SRV:
-            case ResourceType::RayTracingAccelStruct:
-                if (bindingSet.SRV.get(item.slot))
-                {
-                    duplicates.SRV.set(item.slot, true);
-                }
-                else
-                {
-                    bindingSet.SRV.set(item.slot, true);
-                    bindingSet.rangeSRV.add(item.slot);
-                }
-                break;
-
-            case ResourceType::Texture_UAV:
-            case ResourceType::TypedBuffer_UAV:
-            case ResourceType::StructuredBuffer_UAV:
-            case ResourceType::RawBuffer_UAV:
-            case ResourceType::SamplerFeedbackTexture_UAV:
-                if (bindingSet.UAV.get(item.slot))
-                {
-                    duplicates.UAV.set(item.slot, true);
-                }
-                else
-                {
-                    bindingSet.UAV.set(item.slot, true);
-                    bindingSet.rangeUAV.add(item.slot);
-                }
-                break;
-
-            case ResourceType::ConstantBuffer:
-            case ResourceType::VolatileConstantBuffer:
-            case ResourceType::PushConstants:
-                if (bindingSet.CB.get(item.slot))
-                {
-                    duplicates.CB.set(item.slot, true);
-                }
-                else
-                {
-                    bindingSet.CB.set(item.slot, true);
-
-                    if (item.type == ResourceType::VolatileConstantBuffer)
-                        ++bindingSet.numVolatileCBs;
-
-                    bindingSet.rangeCB.add(item.slot);
-                }
-                break;
-
-            case ResourceType::Sampler:
-                if (bindingSet.Sampler.get(item.slot))
-                {
-                    duplicates.Sampler.set(item.slot, true);
-                }
-                else
-                {
-                    bindingSet.Sampler.set(item.slot, true);
-                    bindingSet.rangeSampler.add(item.slot);
-                }
-                break;
-            
-            case ResourceType::None:
-            case ResourceType::Count:
-            default: {
-                std::stringstream ss;
-                ss << "Invalid layout item type " << (int)item.type;
-                messageCallback->message(MessageSeverity::Error, ss.str().c_str());
-                break;
-            }
+                UpdateShaderBindingSetsWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
             }
         }
     }
     
-    void BitsetToStream(const sparse_bitset& bits, std::ostream& os, const char* prefix, bool &first)
+    static void FillShaderBindingSetFromBindingSet(IMessageCallback* messageCallback, BindingSetDesc const& desc,
+        uint32_t registerSpace, ShaderBindingSet& bindingSet, ShaderBindingSet& duplicates)
     {
-        for (uint32_t slot : bits)
+        for (const auto& item : desc.bindings)
         {
-            if (!first)
-                os << ", ";
-            os << prefix << slot;
-            first = false;
+            BindingLocation location;
+            location.registerSpace = registerSpace;
+            location.slot = item.slot;
+            location.arrayElement = item.arrayElement;
+            UpdateShaderBindingSetsWithLocation(messageCallback, item.type, location, bindingSet, duplicates);
         }
     }
 
@@ -808,9 +830,7 @@ namespace nvrhi::validation
             ShaderType stage = shader->getDesc().shaderType;
 
             static_vector<ShaderBindingSet, c_MaxBindingLayouts> bindingsPerLayout;
-            static_vector<ShaderBindingSet, c_MaxBindingLayouts> duplicatesPerLayout;
             bindingsPerLayout.resize(numBindingLayouts);
-            duplicatesPerLayout.resize(numBindingLayouts);
 
             // Accumulate binding information about the stage from all layouts
 
@@ -832,17 +852,11 @@ namespace nvrhi::validation
                         if (!(layoutDesc->visibility & stage))
                                 continue;
 
-                        if (layoutDesc->registerSpace != 0)
-                        {
-                            continue; // TODO: add support for multiple register spaces. 
-                                      // Their indices can go up to 0xffffffef, according to the spec, so a vector won't work.
-                                      // https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html#note-about-register-space
-                        }
-
-                        FillShaderBindingSetFromDesc(m_MessageCallback, layoutDesc->bindings, bindingsPerLayout[layoutIndex], duplicatesPerLayout[layoutIndex]);
+                        ShaderBindingSet duplicates;
+                        FillShaderBindingSetFromBindingLayout(m_MessageCallback, *layoutDesc, bindingsPerLayout[layoutIndex], duplicates);
 
                         // Layouts with duplicates should not have passed validation in createBindingLayout
-                        assert(!duplicatesPerLayout[layoutIndex].any());
+                        assert(!duplicates.any());
                     }
                 }
             }
@@ -873,15 +887,8 @@ namespace nvrhi::validation
 
                 for (int layoutIndex = 1; layoutIndex < numBindingLayouts; layoutIndex++)
                 {
-                    duplicates.SRV     |= bindings.SRV     & bindingsPerLayout[layoutIndex].SRV;
-                    duplicates.Sampler |= bindings.Sampler & bindingsPerLayout[layoutIndex].Sampler;
-                    duplicates.UAV     |= bindings.UAV     & bindingsPerLayout[layoutIndex].UAV;
-                    duplicates.CB      |= bindings.CB      & bindingsPerLayout[layoutIndex].CB;
-
-                    bindings.SRV       |= bindingsPerLayout[layoutIndex].SRV;
-                    bindings.Sampler   |= bindingsPerLayout[layoutIndex].Sampler;
-                    bindings.UAV       |= bindingsPerLayout[layoutIndex].UAV;
-                    bindings.CB        |= bindingsPerLayout[layoutIndex].CB;
+                    SetUnionInplace(duplicates.locations, SetIntersection(bindings.locations, bindingsPerLayout[layoutIndex].locations));
+                    SetUnionInplace(bindings.locations, bindingsPerLayout[layoutIndex].locations);
                 }
 
                 if (duplicates.any())
@@ -1190,7 +1197,7 @@ namespace nvrhi::validation
         ShaderBindingSet bindings;
         ShaderBindingSet duplicates;
 
-        FillShaderBindingSetFromDesc(m_MessageCallback, desc.bindings, bindings, duplicates);
+        FillShaderBindingSetFromBindingLayout(m_MessageCallback, desc, bindings, duplicates);
 
         if (desc.visibility == ShaderType::None)
         {
@@ -1627,26 +1634,19 @@ namespace nvrhi::validation
         ShaderBindingSet layoutBindings;
         ShaderBindingSet layoutDuplicates;
 
-        FillShaderBindingSetFromDesc(m_MessageCallback, layoutDesc->bindings, layoutBindings, layoutDuplicates);
+        FillShaderBindingSetFromBindingLayout(m_MessageCallback, *layoutDesc, layoutBindings, layoutDuplicates);
 
         ShaderBindingSet setBindings;
         ShaderBindingSet setDuplicates;
 
-        FillShaderBindingSetFromDesc(m_MessageCallback, desc.bindings, setBindings, setDuplicates);
+        FillShaderBindingSetFromBindingSet(m_MessageCallback, desc, layoutDesc->registerSpace, setBindings, setDuplicates);
 
         ShaderBindingSet declaredNotBound;
         ShaderBindingSet boundNotDeclared;
 
-        declaredNotBound.SRV     = layoutBindings.SRV     - setBindings.SRV;
-        declaredNotBound.Sampler = layoutBindings.Sampler - setBindings.Sampler;
-        declaredNotBound.UAV     = layoutBindings.UAV     - setBindings.UAV;
-        declaredNotBound.CB      = layoutBindings.CB      - setBindings.CB;
+        declaredNotBound.locations = SetDifference(layoutBindings.locations, setBindings.locations);
+        boundNotDeclared.locations = SetDifference(setBindings.locations, layoutBindings.locations);
 
-        boundNotDeclared.SRV     = setBindings.SRV        - layoutBindings.SRV;
-        boundNotDeclared.Sampler = setBindings.Sampler    - layoutBindings.Sampler;
-        boundNotDeclared.UAV     = setBindings.UAV        - layoutBindings.UAV;
-        boundNotDeclared.CB      = setBindings.CB         - layoutBindings.CB;
-#if 0
         if (declaredNotBound.any())
         {
             errorStream << "Bindings declared in the layout are not present in the binding set: " << declaredNotBound << std::endl;
@@ -1665,33 +1665,12 @@ namespace nvrhi::validation
             anyErrors = true;
         }
 
-        if (desc.bindings.size() != layoutDesc->bindings.size())
+        for (size_t index = 0; index < desc.bindings.size(); index++)
         {
-            errorStream << "The number of items in the binding set descriptor (" << desc.bindings.size() << ") "
-                "is different from the number of items in the layout (" << layoutDesc->bindings.size() << ")" << std::endl;
-            anyErrors = true;
+            if (!validateBindingSetItem(desc.bindings[index], false, errorStream))
+                anyErrors = true;
         }
-        else
-        {
-            for (size_t index = 0; index < desc.bindings.size(); index++)
-            {
-                const BindingSetItem& setItem = desc.bindings[index];
-                const BindingLayoutItem& layoutItem = layoutDesc->bindings[index];
-                
-                if ((setItem.slot != layoutItem.slot) || (setItem.type != layoutItem.type))
-                {
-                    errorStream << "Binding set item " << index << " doesn't match layout item " << index << ": "
-                        "expected " << utils::ResourceTypeToString(layoutItem.type) << "(" << layoutItem.slot << "), "
-                        "received " << utils::ResourceTypeToString(setItem.type) << "(" << setItem.slot << ")" << std::endl;
 
-                    anyErrors = true;
-                }
-
-                if (!validateBindingSetItem(setItem, false, errorStream))
-                    anyErrors = true;
-            }
-        }
-#endif
         if (anyErrors)
         {
             error(errorStream.str());
@@ -2154,7 +2133,7 @@ namespace nvrhi::validation
 
     bool ShaderBindingSet::any() const
     {
-        return SRV.any() || Sampler.any() || UAV.any() || CB.any();
+        return !locations.empty();
     }
 
     bool ShaderBindingSet::overlapsWith(const ShaderBindingSet& other) const
@@ -2183,10 +2162,29 @@ namespace nvrhi::validation
     std::ostream& operator<<(std::ostream& os, const ShaderBindingSet& set)
     {
         bool first = true;
-        BitsetToStream(set.SRV, os, "t", first);
-        BitsetToStream(set.Sampler, os, "s", first);
-        BitsetToStream(set.UAV, os, "u", first);
-        BitsetToStream(set.CB, os, "b", first);
+        for (BindingLocation const& item : set.locations)
+        {
+            if (!first)
+                os << ", ";
+
+            if (item.registerSpace != 0)
+                os << "space" << item.registerSpace << ".";
+
+            char const* prefix = "?";
+            switch(item.type)
+            {
+                case GraphicsResourceType::SRV: prefix = "t"; break;
+                case GraphicsResourceType::Sampler: prefix = "s"; break;
+                case GraphicsResourceType::UAV: prefix = "u"; break;
+                case GraphicsResourceType::CB: prefix = "b"; break;
+            }
+            os << prefix << item.slot;
+
+            if (item.arrayElement != 0)
+                os << "[" << item.arrayElement << "]";
+
+            first = false;
+        }
         return os;
     }
 } // namespace nvrhi::validation

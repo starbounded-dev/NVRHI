@@ -1897,6 +1897,8 @@ namespace nvrhi
         constexpr BindingLayoutItem& setType(ResourceType value) { type = value; return *this; }
         constexpr BindingLayoutItem& setSize(uint32_t value) { size = uint16_t(value); return *this; }
 
+        uint32_t getArraySize() const { return (type == ResourceType::PushConstants) ? 1 : size; }
+
         // Helper functions for strongly typed initialization
 #define NVRHI_BINDING_LAYOUT_ITEM_INITIALIZER(TYPE) /* NOLINT(cppcoreguidelines-macro-usage) */ \
         static BindingLayoutItem TYPE(const uint32_t slot) { \

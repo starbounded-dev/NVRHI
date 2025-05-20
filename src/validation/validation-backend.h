@@ -23,7 +23,7 @@
 #pragma once
 
 #include <nvrhi/validation.h>
-#include "../common/sparse-bitset.h"
+#include <unordered_set>
 
 namespace nvrhi::validation
 {
@@ -39,12 +39,59 @@ namespace nvrhi::validation
         [[nodiscard]] bool overlapsWith(const Range& other) const;
     };
 
+    enum class GraphicsResourceType : uint32_t
+    {
+        SRV,
+        Sampler,
+        UAV,
+        CB
+    };
+
+    struct BindingLocation
+    {
+        GraphicsResourceType type = GraphicsResourceType::SRV;
+        uint32_t registerSpace = 0;
+        uint32_t slot = 0;
+        uint32_t arrayElement = 0;
+
+        bool operator==(BindingLocation const& other) const
+        {
+            return type == other.type
+                && registerSpace == other.registerSpace
+                && slot == other.slot
+                && arrayElement == other.arrayElement;
+        }
+
+        bool operator!=(BindingLocation const& other) const
+        {
+            return !(*this == other);
+        }
+    };
+} // namespace nvrhi::validation
+
+namespace std
+{
+    template<> struct hash<nvrhi::validation::BindingLocation>
+    {
+        std::size_t operator()(nvrhi::validation::BindingLocation const& s) const noexcept
+        {
+            size_t hash = 0;
+            nvrhi::hash_combine(hash, uint32_t(s.type));
+            nvrhi::hash_combine(hash, s.registerSpace);
+            nvrhi::hash_combine(hash, s.slot);
+            nvrhi::hash_combine(hash, s.arrayElement);
+            return hash;
+        }
+    };
+} // namespace std
+
+namespace nvrhi::validation
+{
+    typedef std::unordered_set<BindingLocation> BindingLocationSet;
+
     struct ShaderBindingSet
     {
-        sparse_bitset SRV;
-        sparse_bitset Sampler;
-        sparse_bitset UAV;
-        sparse_bitset CB;
+        BindingLocationSet locations;
         uint32_t numVolatileCBs = 0;
         Range rangeSRV;
         Range rangeSampler;
