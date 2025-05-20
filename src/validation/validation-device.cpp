@@ -861,23 +861,6 @@ namespace nvrhi::validation
                 }
             }
 
-            // Check for bindings to an unused shader stage
-
-            if (shader == nullptr)
-            {
-                for (int layoutIndex = 0; layoutIndex < numBindingLayouts; layoutIndex++)
-                {
-                    if (bindingsPerLayout[layoutIndex].any())
-                    {
-                        std::stringstream ss;
-                        ss << "Binding layout in slot " << layoutIndex <<" has bindings for a "
-                            << utils::ShaderStageToString(stage) << " shader, which is not used in the pipeline";
-                        error(ss.str());
-                        anyErrors = true;
-                    }
-                }
-            }
-
             // Check for multiple layouts declaring the same bindings
 
             if (numBindingLayouts > 1)
