@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 17;
+    static constexpr uint32_t c_HeaderVersion = 18;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -73,7 +73,7 @@ namespace nvrhi
     static constexpr uint32_t c_MaxRenderTargets = 8;
     static constexpr uint32_t c_MaxViewports = 16;
     static constexpr uint32_t c_MaxVertexAttributes = 16;
-    static constexpr uint32_t c_MaxBindingLayouts = 5;
+    static constexpr uint32_t c_MaxBindingLayouts = 8;
     static constexpr uint32_t c_MaxBindlessRegisterSpaces = 16;
     static constexpr uint32_t c_MaxVolatileConstantBuffersPerLayout = 6;
     static constexpr uint32_t c_MaxVolatileConstantBuffers = 32;
