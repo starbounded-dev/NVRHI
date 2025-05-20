@@ -80,6 +80,7 @@ namespace nvrhi::utils
                 BindingLayoutItem layoutItem{};
                 layoutItem.slot = item.slot;
                 layoutItem.type = item.type;
+                layoutItem.size = 1;
                 if (item.type == ResourceType::PushConstants)
                     layoutItem.size = uint32_t(item.range.byteSize);
                 layoutDesc.push_back(layoutItem);
