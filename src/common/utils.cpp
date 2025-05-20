@@ -73,7 +73,7 @@ namespace nvrhi::utils
         nvrhi::BindingLayoutHandle& bindingLayout,
         nvrhi::BindingSetHandle& bindingSet)
     {
-        auto convertSetToLayout = [](const BindingSetItemArray& setDesc, BindingLayoutItemArray& layoutDesc)
+        auto convertSetToLayout = [](const std::vector<BindingSetItem>& setDesc, std::vector<BindingLayoutItem>& layoutDesc)
         {
             for (auto& item : setDesc)
             {

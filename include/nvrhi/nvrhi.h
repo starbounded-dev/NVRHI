@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 16;
+    static constexpr uint32_t c_HeaderVersion = 17;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -74,7 +74,7 @@ namespace nvrhi
     static constexpr uint32_t c_MaxViewports = 16;
     static constexpr uint32_t c_MaxVertexAttributes = 16;
     static constexpr uint32_t c_MaxBindingLayouts = 5;
-    static constexpr uint32_t c_MaxBindingsPerLayout = 128;
+    static constexpr uint32_t c_MaxBindlessRegisterSpaces = 16;
     static constexpr uint32_t c_MaxVolatileConstantBuffersPerLayout = 6;
     static constexpr uint32_t c_MaxVolatileConstantBuffers = 32;
     static constexpr uint32_t c_MaxPushConstantSize = 128; // D3D12: root signature is 256 bytes max., Vulkan: 128 bytes of push constants guaranteed
@@ -1936,8 +1936,6 @@ namespace nvrhi
     // verify the packing of BindingLayoutItem for good alignment
     static_assert(sizeof(BindingLayoutItem) == 8, "sizeof(BindingLayoutItem) is supposed to be 8 bytes");
 
-    typedef static_vector<BindingLayoutItem, c_MaxBindingsPerLayout> BindingLayoutItemArray;
-
     // Describes compile-time settings for HLSL -> SPIR-V register allocation.
     struct VulkanBindingOffsets
     {
@@ -1974,7 +1972,7 @@ namespace nvrhi
         //   an error.
         bool registerSpaceIsDescriptorSet = false;
 
-        BindingLayoutItemArray bindings;
+        std::vector<BindingLayoutItem> bindings;
         VulkanBindingOffsets bindingOffsets;
 
         BindingLayoutDesc& setVisibility(ShaderType value) { visibility = value; return *this; }
@@ -1995,7 +1993,7 @@ namespace nvrhi
         ShaderType visibility = ShaderType::None;
         uint32_t firstSlot = 0;
         uint32_t maxCapacity = 0;
-        static_vector<BindingLayoutItem, 16> registerSpaces;
+        static_vector<BindingLayoutItem, c_MaxBindlessRegisterSpaces> registerSpaces;
 
         BindlessLayoutDesc& setVisibility(ShaderType value) { visibility = value; return *this; }
         BindlessLayoutDesc& setFirstSlot(uint32_t value) { firstSlot = value; return *this; }
@@ -2298,14 +2296,10 @@ namespace nvrhi
     // verify the packing of BindingSetItem for good alignment
     static_assert(sizeof(BindingSetItem) == 40, "sizeof(BindingSetItem) is supposed to be 40 bytes");
 
-    // describes the resource bindings for a single pipeline stage
-    typedef static_vector<BindingSetItem, c_MaxBindingsPerLayout> BindingSetItemArray;
-
-    // describes a set of bindings across all stages of the pipeline
-    // (not all bindings need to be present in the set, but the set must be defined by a single BindingSetItem object)
+    // Describes a set of bindings corresponding to one binidng layout
     struct BindingSetDesc
     {
-        BindingSetItemArray bindings;
+        std::vector<BindingSetItem> bindings;
        
         // Enables automatic liveness tracking of this binding set by nvrhi command lists.
         // By setting trackLiveness to false, you take the responsibility of not releasing it 

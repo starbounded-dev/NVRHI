@@ -256,10 +256,14 @@ namespace nvrhi::vulkan
         CHECK_VK_FAIL(res)
         
         // collect all of the descriptor write data
-        static_vector<vk::DescriptorImageInfo, c_MaxBindingsPerLayout> descriptorImageInfo;
-        static_vector<vk::DescriptorBufferInfo, c_MaxBindingsPerLayout> descriptorBufferInfo;
-        static_vector<vk::WriteDescriptorSet, c_MaxBindingsPerLayout> descriptorWriteInfo;
-        static_vector<vk::WriteDescriptorSetAccelerationStructureKHR, c_MaxBindingsPerLayout> accelStructWriteInfo;
+        std::vector<vk::DescriptorImageInfo> descriptorImageInfo;
+        std::vector<vk::DescriptorBufferInfo> descriptorBufferInfo;
+        std::vector<vk::WriteDescriptorSet> descriptorWriteInfo;
+        std::vector<vk::WriteDescriptorSetAccelerationStructureKHR> accelStructWriteInfo;
+        descriptorImageInfo.reserve(desc.bindings.size());
+        descriptorBufferInfo.reserve(desc.bindings.size());
+        descriptorWriteInfo.reserve(desc.bindings.size());
+        accelStructWriteInfo.reserve(desc.bindings.size());
 
         auto generateWriteDescriptorData =
             // generates a vk::WriteDescriptorSet struct in descriptorWriteInfo
@@ -625,9 +629,9 @@ namespace nvrhi::vulkan
         vk::Result res;
 
         // collect all of the descriptor write data
-        static_vector<vk::DescriptorImageInfo, c_MaxBindingsPerLayout> descriptorImageInfo;
-        static_vector<vk::DescriptorBufferInfo, c_MaxBindingsPerLayout> descriptorBufferInfo;
-        static_vector<vk::WriteDescriptorSet, c_MaxBindingsPerLayout> descriptorWriteInfo;
+        static_vector<vk::DescriptorImageInfo, c_MaxBindlessRegisterSpaces> descriptorImageInfo;
+        static_vector<vk::DescriptorBufferInfo, c_MaxBindlessRegisterSpaces> descriptorBufferInfo;
+        static_vector<vk::WriteDescriptorSet, c_MaxBindlessRegisterSpaces> descriptorWriteInfo;
 
         auto generateWriteDescriptorData =
             // generates a vk::WriteDescriptorSet struct in descriptorWriteInfo
