@@ -24,6 +24,7 @@
 
 #include <nvrhi/d3d11.h>
 #include <nvrhi/common/resourcebindingmap.h>
+#include <nvrhi/utils.h>
 #include "../common/dxgi-format.h"
 
 #include <d3d11_1.h>
@@ -115,6 +116,7 @@ namespace nvrhi::d3d11
         
         Buffer(const Context& context) : m_Context(context) { }
         const BufferDesc& getDesc() const override { return desc; }
+        GpuVirtualAddress getGpuVirtualAddress() const override { nvrhi::utils::NotImplemented(); return 0; }
         Object getNativeObject(ObjectType objectType) override;
 
         ID3D11ShaderResourceView* getSRV(Format format, BufferRange range, ResourceType type);
@@ -300,6 +302,9 @@ namespace nvrhi::d3d11
         void clearTextureFloat(ITexture* t, TextureSubresourceSet subresources, const Color& clearColor) override;
         void clearDepthStencilTexture(ITexture* t, TextureSubresourceSet subresources, bool clearDepth, float depth, bool clearStencil, uint8_t stencil) override;
         void clearTextureUInt(ITexture* t, TextureSubresourceSet subresources, uint32_t clearColor) override;
+        void clearSamplerFeedbackTexture(ISamplerFeedbackTexture* texture) override;
+        void decodeSamplerFeedbackTexture(IBuffer* buffer, ISamplerFeedbackTexture* texture, Format format) override;
+        void setSamplerFeedbackTextureState(ISamplerFeedbackTexture* texture, ResourceStates stateBits) override;
 
         void copyTexture(ITexture* dest, const TextureSlice& destSlice, ITexture* src, const TextureSlice& srcSlice) override;
         void copyTexture(IStagingTexture* dest, const TextureSlice& destSlice, ITexture* src, const TextureSlice& srcSlice) override;
@@ -335,6 +340,7 @@ namespace nvrhi::d3d11
         void buildTopLevelAccelStruct(rt::IAccelStruct* as, const rt::InstanceDesc* pInstances, size_t numInstances, rt::AccelStructBuildFlags buildFlags) override;
         void buildTopLevelAccelStructFromBuffer(rt::IAccelStruct* as, nvrhi::IBuffer* instanceBuffer, uint64_t instanceBufferOffset, size_t numInstances,
             rt::AccelStructBuildFlags buildFlags = rt::AccelStructBuildFlags::None) override;
+        void executeMultiIndirectClusterOperation(const rt::cluster::OperationDesc& desc) override;
 
         void beginTimerQuery(ITimerQuery* query) override;
         void endTimerQuery(ITimerQuery* query) override;
@@ -442,6 +448,12 @@ namespace nvrhi::d3d11
         void *mapStagingTexture(IStagingTexture* tex, const TextureSlice& slice, CpuAccessMode cpuAccess, size_t *outRowPitch) override;
         void unmapStagingTexture(IStagingTexture* tex) override;
 
+        void getTextureTiling(ITexture* texture, uint32_t* numTiles, PackedMipDesc* desc, TileShape* tileShape, uint32_t* subresourceTilingsNum, SubresourceTiling* subresourceTilings) override;
+        void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings, CommandQueue executionQueue = CommandQueue::Graphics) override;
+
+        SamplerFeedbackTextureHandle createSamplerFeedbackTexture(ITexture* pairedTexture, const SamplerFeedbackTextureDesc& desc) override;
+        SamplerFeedbackTextureHandle createSamplerFeedbackForNativeTexture(ObjectType objectType, Object texture, ITexture* pairedTexture) override;
+
         BufferHandle createBuffer(const BufferDesc& d) override;
         void *mapBuffer(IBuffer* b, CpuAccessMode mapFlags) override;
         void unmapBuffer(IBuffer* b) override;
@@ -495,6 +507,7 @@ namespace nvrhi::d3d11
         rt::OpacityMicromapHandle createOpacityMicromap(const rt::OpacityMicromapDesc& desc) override;
         rt::AccelStructHandle createAccelStruct(const rt::AccelStructDesc& desc) override;
         MemoryRequirements getAccelStructMemoryRequirements(rt::IAccelStruct* as) override;
+        rt::cluster::OperationSizeInfo getClusterOperationSizeInfo(const rt::cluster::OperationParams& params) override;
         bool bindAccelStructMemory(rt::IAccelStruct* as, IHeap* heap, uint64_t offset) override;
 
         CommandListHandle createCommandList(const CommandListParameters& params = CommandListParameters()) override;
@@ -519,6 +532,7 @@ namespace nvrhi::d3d11
         std::unordered_map<size_t, RefCountPtr<ID3D11RasterizerState>> m_RasterizerStates;
 
         bool m_SinglePassStereoSupported = false;
+        bool m_HlslExtensionsSupported = false;
         bool m_FastGeometryShaderSupported = false;
 
         TextureHandle createTexture(const TextureDesc& d, CpuAccessMode cpuAccess) const;

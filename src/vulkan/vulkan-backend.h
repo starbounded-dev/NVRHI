@@ -117,6 +117,7 @@ namespace nvrhi::vulkan
     vk::GeometryInstanceFlagsKHR convertInstanceFlags(rt::InstanceFlags instanceFlags);
     vk::Extent2D convertFragmentShadingRate(VariableShadingRate shadingRate);
     vk::FragmentShadingRateCombinerOpKHR convertShadingRateCombiner(ShadingRateCombiner combiner);
+    vk::DescriptorType convertResourceType(ResourceType type);
 
     void countSpecializationConstants(
         Shader* shader,
@@ -172,8 +173,8 @@ namespace nvrhi::vulkan
             bool EXT_conservative_rasterization = false;
             bool EXT_opacity_micromap = false;
             bool NV_ray_tracing_invocation_reorder = false;
-#if NVRHI_WITH_AFTERMATH
             bool EXT_debug_utils = false;
+#if NVRHI_WITH_AFTERMATH
             bool NV_device_diagnostic_checkpoints = false;
             bool NV_device_diagnostics_config= false;
 #endif
@@ -187,6 +188,7 @@ namespace nvrhi::vulkan
         vk::PhysicalDeviceOpacityMicromapPropertiesEXT opacityMicromapProperties;
         vk::PhysicalDeviceRayTracingInvocationReorderPropertiesNV nvRayTracingInvocationReorderProperties;
         vk::PhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures;
+        vk::PhysicalDeviceSubgroupProperties subgroupProperties;
         IMessageCallback* messageCallback = nullptr;
 #ifdef NVRHI_WITH_RTXMU
         std::unique_ptr<rtxmu::VkAccelStructManager> rtxMemUtil;
@@ -194,7 +196,8 @@ namespace nvrhi::vulkan
 #endif
         vk::DescriptorSetLayout emptyDescriptorSetLayout;
 
-        void nameVKObject(const void* handle, vk::DebugReportObjectTypeEXT objtype, const char* name) const;
+        void nameVKObject(const void* handle, const vk::ObjectType objtype,
+            const vk::DebugReportObjectTypeEXT objtypeEXT, const char* name) const;
         void error(const std::string& message) const;
         void warning(const std::string& message) const;
     };
@@ -250,6 +253,8 @@ namespace nvrhi::vulkan
 
         // submits a command buffer to this queue, returns submissionID
         uint64_t submit(ICommandList* const* ppCmd, size_t numCmd);
+
+        void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings);
 
         // retire any command buffers that have finished execution from the pending execution list
         void retireCommandBuffers();
@@ -400,6 +405,7 @@ namespace nvrhi::vulkan
         vk::ImageCreateInfo imageInfo;
         vk::ExternalMemoryImageCreateInfo externalMemoryImageInfo;
         vk::Image image;
+        static constexpr uint32_t tileByteSize = 65536;
 
         HeapHandle heap;
 
@@ -565,6 +571,7 @@ namespace nvrhi::vulkan
 
         ~Buffer() override;
         const BufferDesc& getDesc() const override { return desc; }
+        GpuVirtualAddress getGpuVirtualAddress() const override { return deviceAddress; }
         Object getNativeObject(ObjectType type) override;
 
     private:
@@ -638,8 +645,7 @@ namespace nvrhi::vulkan
         std::vector<ShaderSpecialization> specializationConstants;
 
         explicit Shader(const VulkanContext& context)
-            : desc(ShaderType::None)
-            , m_Context(context)
+            : m_Context(context)
         { }
 
         ~Shader() override;
@@ -806,6 +812,9 @@ namespace nvrhi::vulkan
         const BindingSetDesc* getDesc() const override { return nullptr; }
         IBindingLayout* getLayout() const override { return layout; }
         uint32_t getCapacity() const override { return capacity; }
+
+        // Vulkan doesnt not have a concept of the first descriptor in the heap
+        uint32_t getFirstDescriptorIndexInHeap() const override { return 0; }
         Object getNativeObject(ObjectType objectType) override;
 
     private:
@@ -1076,6 +1085,12 @@ namespace nvrhi::vulkan
         void *mapStagingTexture(IStagingTexture* tex, const TextureSlice& slice, CpuAccessMode cpuAccess, size_t *outRowPitch) override;
         void unmapStagingTexture(IStagingTexture* tex) override;
 
+        void getTextureTiling(ITexture* texture, uint32_t* numTiles, PackedMipDesc* desc, TileShape* tileShape, uint32_t* subresourceTilingsNum, SubresourceTiling* subresourceTilings) override;
+        void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings, CommandQueue executionQueue = CommandQueue::Graphics) override;
+
+        SamplerFeedbackTextureHandle createSamplerFeedbackTexture(ITexture* pairedTexture, const SamplerFeedbackTextureDesc& desc) override;
+        SamplerFeedbackTextureHandle createSamplerFeedbackForNativeTexture(ObjectType objectType, Object texture, ITexture* pairedTexture) override;
+
         BufferHandle createBuffer(const BufferDesc& d) override;
         void *mapBuffer(IBuffer* b, CpuAccessMode mapFlags) override;
         void unmapBuffer(IBuffer* b) override;
@@ -1129,6 +1144,7 @@ namespace nvrhi::vulkan
         rt::OpacityMicromapHandle createOpacityMicromap(const rt::OpacityMicromapDesc& desc) override;
         rt::AccelStructHandle createAccelStruct(const rt::AccelStructDesc& desc) override;
         MemoryRequirements getAccelStructMemoryRequirements(rt::IAccelStruct* as) override;
+        rt::cluster::OperationSizeInfo getClusterOperationSizeInfo(const rt::cluster::OperationParams& params) override;
         bool bindAccelStructMemory(rt::IAccelStruct* as, IHeap* heap, uint64_t offset) override;
 
         CommandListHandle createCommandList(const CommandListParameters& params = CommandListParameters()) override;
@@ -1191,6 +1207,9 @@ namespace nvrhi::vulkan
         void clearTextureFloat(ITexture* texture, TextureSubresourceSet subresources, const Color& clearColor) override;
         void clearDepthStencilTexture(ITexture* texture, TextureSubresourceSet subresources, bool clearDepth, float depth, bool clearStencil, uint8_t stencil) override;
         void clearTextureUInt(ITexture* texture, TextureSubresourceSet subresources, uint32_t clearColor) override;
+        void clearSamplerFeedbackTexture(ISamplerFeedbackTexture* texture) override;
+        void decodeSamplerFeedbackTexture(IBuffer* buffer, ISamplerFeedbackTexture* texture, Format format) override;
+        void setSamplerFeedbackTextureState(ISamplerFeedbackTexture* texture, ResourceStates stateBits) override;
 
         void copyTexture(ITexture* dest, const TextureSlice& destSlice, ITexture* src, const TextureSlice& srcSlice) override;
         void copyTexture(IStagingTexture* dest, const TextureSlice& dstSlice, ITexture* src, const TextureSlice& srcSlice) override;
@@ -1226,6 +1245,7 @@ namespace nvrhi::vulkan
         void buildTopLevelAccelStruct(rt::IAccelStruct* as, const rt::InstanceDesc* pInstances, size_t numInstances, rt::AccelStructBuildFlags buildFlags) override;
         void buildTopLevelAccelStructFromBuffer(rt::IAccelStruct* as, nvrhi::IBuffer* instanceBuffer, uint64_t instanceBufferOffset, size_t numInstances,
             rt::AccelStructBuildFlags buildFlags = rt::AccelStructBuildFlags::None) override;
+        void executeMultiIndirectClusterOperation(const rt::cluster::OperationDesc& desc) override;
 
         void beginTimerQuery(ITimerQuery* query) override;
         void endTimerQuery(ITimerQuery* query) override;

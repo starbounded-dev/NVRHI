@@ -58,6 +58,10 @@ if (NVRHI_WITH_VULKAN AND NOT TARGET Vulkan-Headers AND NOT TARGET Vulkan::Heade
     add_subdirectory(thirdparty/Vulkan-Headers)
 endif()
 
+if(NVRHI_WITH_DX12 AND NOT TARGET DirectX-Headers AND NOT TARGET Microsoft::DirectX-Headers)
+    add_subdirectory(thirdparty/DirectX-Headers)
+endif()
+
 if (NVRHI_WITH_RTXMU)
     if (TARGET Vulkan-Headers)
         get_target_property(RTXMU_VULKAN_INCLUDE_DIR Vulkan-Headers INTERFACE_INCLUDE_DIRECTORIES)
@@ -82,23 +86,12 @@ if (NVRHI_WITH_NVAPI AND NOT TARGET nvapi)
 endif()
 
 if (NVRHI_WITH_AFTERMATH AND NOT TARGET aftermath)
-    find_package(Aftermath REQUIRED)
-
-    if (AFTERMATH_FOUND)
-        add_library(aftermath SHARED IMPORTED GLOBAL)
-        target_include_directories(aftermath INTERFACE "${AFTERMATH_INCLUDE_DIR}")
-        if (WIN32)
-            set_property(TARGET aftermath PROPERTY IMPORTED_IMPLIB "${AFTERMATH_LIBRARY}")
-        endif()
-        set_property(TARGET aftermath PROPERTY IMPORTED_LOCATION "${AFTERMATH_RUNTIME_LIBRARY}")
-        file(COPY ${AFTERMATH_RUNTIME_LIBRARY} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-    else()
-        message(FATAL_ERROR "NVRHI_WITH_AFTERMATH is enabled but cmake cannot find the Aftermath SDK in AFTERMATH_SEARCH_PATHS")
-    endif()
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchAftermath.cmake")
 endif()
 
 set(include_common
     include/nvrhi/nvrhi.h
+    include/nvrhi/nvrhiHLSL.h
     include/nvrhi/utils.h
     include/nvrhi/common/containers.h
     include/nvrhi/common/misc.h
@@ -124,9 +117,7 @@ set(include_validation
 set(src_validation
     src/validation/validation-commandlist.cpp
     src/validation/validation-device.cpp
-    src/validation/validation-backend.h
-    src/common/sparse-bitset.h
-    src/common/sparse-bitset.cpp)
+    src/validation/validation-backend.h)
 
 set(include_d3d11
     include/nvrhi/d3d11.h)
@@ -284,7 +275,7 @@ if (NVRHI_WITH_DX12)
         target_link_libraries(${nvrhi_d3d12_target} PUBLIC rtxmu)
     endif()
 
-    target_link_libraries(${nvrhi_d3d12_target} PUBLIC d3d12 dxguid)
+    target_link_libraries(${nvrhi_d3d12_target} PUBLIC Microsoft::DirectX-Headers Microsoft::DirectX-Guids d3d12)
 
     if (NVRHI_WITH_NVAPI)
         target_link_libraries(${nvrhi_d3d12_target} PUBLIC nvapi)

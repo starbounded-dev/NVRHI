@@ -23,7 +23,7 @@
 #pragma once
 
 #include <nvrhi/validation.h>
-#include "../common/sparse-bitset.h"
+#include <unordered_set>
 
 namespace nvrhi::validation
 {
@@ -39,12 +39,59 @@ namespace nvrhi::validation
         [[nodiscard]] bool overlapsWith(const Range& other) const;
     };
 
-    struct ShaderBindingSet
+    enum class GraphicsResourceType : uint32_t
     {
-        sparse_bitset SRV;
-        sparse_bitset Sampler;
-        sparse_bitset UAV;
-        sparse_bitset CB;
+        SRV,
+        Sampler,
+        UAV,
+        CB
+    };
+
+    struct BindingLocation
+    {
+        GraphicsResourceType type = GraphicsResourceType::SRV;
+        uint32_t registerSpace = 0;
+        uint32_t slot = 0;
+        uint32_t arrayElement = 0;
+
+        bool operator==(BindingLocation const& other) const
+        {
+            return type == other.type
+                && registerSpace == other.registerSpace
+                && slot == other.slot
+                && arrayElement == other.arrayElement;
+        }
+
+        bool operator!=(BindingLocation const& other) const
+        {
+            return !(*this == other);
+        }
+    };
+} // namespace nvrhi::validation
+
+namespace std
+{
+    template<> struct hash<nvrhi::validation::BindingLocation>
+    {
+        std::size_t operator()(nvrhi::validation::BindingLocation const& s) const noexcept
+        {
+            size_t hash = 0;
+            nvrhi::hash_combine(hash, uint32_t(s.type));
+            nvrhi::hash_combine(hash, s.registerSpace);
+            nvrhi::hash_combine(hash, s.slot);
+            nvrhi::hash_combine(hash, s.arrayElement);
+            return hash;
+        }
+    };
+} // namespace std
+
+namespace nvrhi::validation
+{
+    typedef std::unordered_set<BindingLocation> BindingLocationSet;
+
+    struct BindingSummary
+    {
+        BindingLocationSet locations;
         uint32_t numVolatileCBs = 0;
         Range rangeSRV;
         Range rangeSampler;
@@ -52,9 +99,10 @@ namespace nvrhi::validation
         Range rangeCB;
 
         [[nodiscard]] bool any() const;
-        [[nodiscard]] bool overlapsWith(const ShaderBindingSet& other) const;
-        friend std::ostream& operator<<(std::ostream& os, const ShaderBindingSet& set);
+        [[nodiscard]] bool overlapsWith(const BindingSummary& other) const;
     };
+    
+    std::ostream& operator<<(std::ostream& os, const BindingLocationSet& set);
 
     enum class CommandListState
     {
@@ -164,6 +212,10 @@ namespace nvrhi::validation
         void clearBufferUInt(IBuffer* b, uint32_t clearValue) override;
         void copyBuffer(IBuffer* dest, uint64_t destOffsetBytes, IBuffer* src, uint64_t srcOffsetBytes, uint64_t dataSizeBytes) override;
 
+        void clearSamplerFeedbackTexture(ISamplerFeedbackTexture* texture) override;
+        void decodeSamplerFeedbackTexture(IBuffer* buffer, ISamplerFeedbackTexture* texture, nvrhi::Format format) override;
+        void setSamplerFeedbackTextureState(ISamplerFeedbackTexture* texture, ResourceStates stateBits) override;
+
         void setPushConstants(const void* data, size_t byteSize) override;
 
         void setGraphicsState(const GraphicsState& state) override;
@@ -188,6 +240,7 @@ namespace nvrhi::validation
         void buildTopLevelAccelStruct(rt::IAccelStruct* as, const rt::InstanceDesc* pInstances, size_t numInstances, rt::AccelStructBuildFlags buildFlags) override;
         void buildTopLevelAccelStructFromBuffer(rt::IAccelStruct* as, nvrhi::IBuffer* instanceBuffer, uint64_t instanceBufferOffset, size_t numInstances,
             rt::AccelStructBuildFlags buildFlags = rt::AccelStructBuildFlags::None) override;
+        void executeMultiIndirectClusterOperation(const rt::cluster::OperationDesc& desc) override;
 
         void beginTimerQuery(ITimerQuery* query) override;
         void endTimerQuery(ITimerQuery* query) override;
@@ -240,6 +293,7 @@ namespace nvrhi::validation
         bool validateShaderType(ShaderType expected, const ShaderDesc& shaderDesc, const char* function) const;
         bool validateRenderState(const RenderState& renderState, IFramebuffer* fb) const;
 
+        bool validateClusterOperationParams(const rt::cluster::OperationParams& params) const;
     public:
 
         // IResource implementation
@@ -259,6 +313,12 @@ namespace nvrhi::validation
         StagingTextureHandle createStagingTexture(const TextureDesc& d, CpuAccessMode cpuAccess) override;
         void *mapStagingTexture(IStagingTexture* tex, const TextureSlice& slice, CpuAccessMode cpuAccess, size_t *outRowPitch) override;
         void unmapStagingTexture(IStagingTexture* tex) override;
+
+        void getTextureTiling(ITexture* texture, uint32_t* numTiles, PackedMipDesc* desc, TileShape* tileShape, uint32_t* subresourceTilingsNum, SubresourceTiling* subresourceTilings) override;
+        void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings, CommandQueue executionQueue = CommandQueue::Graphics) override;
+
+        SamplerFeedbackTextureHandle createSamplerFeedbackTexture(ITexture* pairedTexture, const SamplerFeedbackTextureDesc& desc) override;
+        SamplerFeedbackTextureHandle createSamplerFeedbackForNativeTexture(ObjectType objectType, Object texture, ITexture* pairedTexture) override;
 
         BufferHandle createBuffer(const BufferDesc& d) override;
         void *mapBuffer(IBuffer* b, CpuAccessMode mapFlags) override;
@@ -313,6 +373,7 @@ namespace nvrhi::validation
         rt::OpacityMicromapHandle createOpacityMicromap(const rt::OpacityMicromapDesc& desc)  override;
         rt::AccelStructHandle createAccelStruct(const rt::AccelStructDesc& desc) override;
         MemoryRequirements getAccelStructMemoryRequirements(rt::IAccelStruct* as) override;
+        rt::cluster::OperationSizeInfo getClusterOperationSizeInfo(const rt::cluster::OperationParams& params) override;
         bool bindAccelStructMemory(rt::IAccelStruct* as, IHeap* heap, uint64_t offset) override;
 
         CommandListHandle createCommandList(const CommandListParameters& params = CommandListParameters()) override;
