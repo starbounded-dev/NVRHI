@@ -24,6 +24,8 @@ project "NVRHI-Vulkan"
 	includedirs {
 		"include",
 
+		"thirdparty/Vulkan-Headers/include",
+
 		"rtxmu/include",
 
 		"%{VULKAN_SDK}/Include",
@@ -69,6 +71,8 @@ project "NVRHI-D3D11"
 	includedirs {
 		"include",
 
+		"thirdparty/DirectX-Headers/include",
+
 		"rtxmu/include",
 	}
 
@@ -112,6 +116,8 @@ project "NVRHI-D3D12"
 
 	includedirs {
 		"include",
+
+		"thirdparty/DirectX-Headers/include",
 
 		"rtxmu/include",
 	}
